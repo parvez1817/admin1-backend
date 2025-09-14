@@ -1,33 +1,26 @@
 // server.js
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
+require("dotenv").config();
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
 // Connect to studentidreq database
-const studentDb = mongoose.createConnection('mongodb://localhost:27017/studentidreq', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+const studentDb = mongoose.createConnection(process.env.MONGO_URI);
+
+studentDb.on("connected", () => {
+  console.log("✅ Connected to studentidreq database");
 });
 
-// Handle database connection events
-studentDb.on('connected', () => {
-  console.log('✅ Connected to studentidreq database');
+studentDb.on("error", (err) => {
+  console.error("❌ Error connecting to studentidreq database:", err);
 });
-
-studentDb.on('error', (err) => {
-  console.error('❌ Error connecting to studentidreq database:', err);
-});
-
-
-
-
 
 // Schema for accepted ID cards (acceptedidcards collection)
 const acceptedIdCardSchema = new mongoose.Schema({
@@ -41,15 +34,13 @@ const acceptedIdCardSchema = new mongoose.Schema({
   reason: String,
   status: {
     type: String,
-    default: 'accepted',
+    default: "accepted",
   },
   acceptedAt: {
     type: Date,
     default: Date.now,
   },
 });
-
-
 
 const AcchistoryIdSchema = new mongoose.Schema({
   registerNumber: String,
@@ -67,16 +58,24 @@ const AcchistoryIdSchema = new mongoose.Schema({
   },
 });
 
-const AcchistoryId = studentDb.model('acchistoryids', AcchistoryIdSchema, 'acchistoryids');
+const AcchistoryId = studentDb.model(
+  "acchistoryids",
+  AcchistoryIdSchema,
+  "acchistoryids"
+);
 
-const AcceptedIdCard = studentDb.model('acceptedidcards', acceptedIdCardSchema, 'acceptedidcards');
+const AcceptedIdCard = studentDb.model(
+  "acceptedidcards",
+  acceptedIdCardSchema,
+  "acceptedidcards"
+);
 
 // Schema for admin IDs (adminids collection)
 const adminIdSchema = new mongoose.Schema({
   adminid: String,
 });
 
-const AdminId = studentDb.model('adminids', adminIdSchema, 'adminids');
+const AdminId = studentDb.model("adminids", adminIdSchema, "adminids");
 
 // Schema for print IDs (printids collection)
 const printIdSchema = new mongoose.Schema({
@@ -94,9 +93,10 @@ const printIdSchema = new mongoose.Schema({
   },
 });
 
-const PrintId = studentDb.model('printids', printIdSchema, 'printids');
+const PrintId = studentDb.model("printids", printIdSchema, "printids");
 
-app.get('/api/printed', async (req, res) => {
+// ✅ API: Get all printed IDs
+app.get("/api/printed", async (req, res) => {
   try {
     const printData = await PrintId.find({});
     res.json(printData);
@@ -105,7 +105,8 @@ app.get('/api/printed', async (req, res) => {
   }
 });
 
-app.get('/api/acchistoryids', async (req, res) => {
+// ✅ API: Get all accepted history IDs
+app.get("/api/acchistoryids", async (req, res) => {
   try {
     const acchistoryData = await AcchistoryId.find({});
     res.json(acchistoryData);
@@ -114,10 +115,8 @@ app.get('/api/acchistoryids', async (req, res) => {
   }
 });
 
-
-
 // ✅ API: Get all accepted ID cards
-app.get('/api/accepted-idcards', async (req, res) => {
+app.get("/api/accepted-idcards", async (req, res) => {
   try {
     const acceptedCards = await AcceptedIdCard.find({});
     res.json(acceptedCards);
@@ -126,13 +125,11 @@ app.get('/api/accepted-idcards', async (req, res) => {
   }
 });
 
-
-
 // ✅ API: Store accepted ID card request and delete from printids
-app.post('/api/accept-idcard', async (req, res) => {
+app.post("/api/accept-idcard", async (req, res) => {
   try {
     if (studentDb.readyState !== 1) {
-      return res.status(500).json({ error: 'Database not connected' });
+      return res.status(500).json({ error: "Database not connected" });
     }
 
     // Save to acceptedidcards collection
@@ -143,24 +140,24 @@ app.post('/api/accept-idcard', async (req, res) => {
     await PrintId.deleteOne({ registerNumber: req.body.registerNumber });
 
     res.status(201).json({
-      message: 'ID card request accepted successfully',
-      data: savedCard
+      message: "ID card request accepted successfully",
+      data: savedCard,
     });
   } catch (err) {
-    console.error('Error processing ID card request:', err);
+    console.error("Error processing ID card request:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // ✅ API: Login check for admin ID
-app.post('/api/login', async (req, res) => {
+app.post("/api/login", async (req, res) => {
   const { adminId } = req.body;
   try {
     const admin = await AdminId.findOne({ adminid: adminId });
     if (admin) {
       res.json({ success: true });
     } else {
-      res.status(401).json({ success: false, message: 'Invalid admin ID' });
+      res.status(401).json({ success: false, message: "Invalid admin ID" });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -169,5 +166,5 @@ app.post('/api/login', async (req, res) => {
 
 // ✅ Start the server
 app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
